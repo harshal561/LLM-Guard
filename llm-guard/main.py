@@ -23,12 +23,33 @@ async def proxy_chat(request: Request):
     safe_message = anonymized.text
 
     # Step 3: Forward the SAFE version onward
-    async with httpx.AsyncClient() as client:
-        response = await client.post(TARGET_URL, json={"message": safe_message})
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            response = await client.post(TARGET_URL, json={"message": safe_message})
+            response.raise_for_status()
+            upstream_data = response.json()
+    except httpx.TimeoutException:
+        return {
+            "error": "Upstream API timed out",
+            "original_message": user_message,
+            "safe_message_sent": safe_message
+        }
+    except httpx.HTTPStatusError as e:
+        return {
+            "error": f"Upstream API returned an error: {e.response.status_code}",
+            "original_message": user_message,
+            "safe_message_sent": safe_message
+        }
+    except Exception as e:
+        return {
+            "error": f"Unexpected error: {str(e)}",
+            "original_message": user_message,
+            "safe_message_sent": safe_message
+        }
 
     return {
         "original_message": user_message,
         "safe_message_sent": safe_message,
         "detected_items": [r.entity_type for r in results],
-        "upstream_response": response.json()
+        "upstream_response": upstream_data
     }
