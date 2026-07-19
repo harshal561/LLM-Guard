@@ -1,0 +1,6 @@
+fastapi
+uvicorn
+httpx
+presidio-analyzer
+presidio-anonymizer
+spacy

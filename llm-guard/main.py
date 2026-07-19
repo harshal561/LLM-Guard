@@ -1,14 +1,31 @@
 from fastapi import FastAPI, Request
 import httpx
-from presidio_analyzer import AnalyzerEngine
+from presidio_analyzer import AnalyzerEngine, PatternRecognizer, Pattern
 from presidio_anonymizer import AnonymizerEngine
 
 app = FastAPI()
-
 TARGET_URL = "https://postman-echo.com/post"
 
+# Initialize Presidio engines
 analyzer = AnalyzerEngine()
 anonymizer = AnonymizerEngine()
+
+# Custom recognizer for API keys (OpenAI, Google, GitHub, AWS + generic secrets)
+api_key_patterns = [
+    Pattern(name="openai_key", regex=r"sk-[A-Za-z0-9]{20,}", score=0.9),
+    Pattern(name="google_key", regex=r"AIza[A-Za-z0-9_\-]{35}", score=0.9),
+    Pattern(name="github_token", regex=r"gh[pousr]_[A-Za-z0-9]{36,}", score=0.9),
+    Pattern(name="aws_access_key", regex=r"AKIA[0-9A-Z]{16}", score=0.9),
+    Pattern(name="generic_secret", regex=r"\b[A-Za-z0-9_\-]{32,}\b", score=0.4),
+]
+
+api_key_recognizer = PatternRecognizer(
+    supported_entity="API_KEY",
+    patterns=api_key_patterns
+)
+
+analyzer.registry.add_recognizer(api_key_recognizer)
+
 
 @app.post("/chat")
 async def proxy_chat(request: Request):
@@ -16,7 +33,11 @@ async def proxy_chat(request: Request):
     user_message = body.get("message", "")
 
     # Step 1: Find sensitive info in the message
-    results = analyzer.analyze(text=user_message, language="en", entities=["CREDIT_CARD", "EMAIL_ADDRESS", "PHONE_NUMBER", "US_SSN", "PERSON", "LOCATION"])
+    results = analyzer.analyze(
+        text=user_message,
+        language="en",
+        entities=["CREDIT_CARD", "EMAIL_ADDRESS", "PHONE_NUMBER", "US_SSN", "PERSON", "LOCATION", "API_KEY"]
+    )
 
     # Step 2: Redact/hide it
     anonymized = anonymizer.anonymize(text=user_message, analyzer_results=results)
