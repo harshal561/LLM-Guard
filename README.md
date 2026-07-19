@@ -6,9 +6,6 @@ LLM Guard is a security layer (reverse proxy) that sits between client applicati
 
 An enterprise deploys an internal AI assistant connected to their proprietary databases. LLM Guard sits directly in front of the AI model as a reverse proxy. Before any prompt reaches the model, sensitive data such as emails, credit card numbers, and API keys are detected and masked — so if an employee accidentally pastes a customer's email or a leaked API key into a prompt, it never reaches the LLM (or any logs) in raw form.
 
-## Current Status: Week 1 (In Progress)
-
-This project is being built incrementally as part of an internship program. Below reflects what is **actually implemented today** — see Roadmap for planned features.
 
 ### ✅ Implemented
 - 🔒 **Reverse Proxy** — FastAPI-based `/chat` endpoint that intercepts requests and forwards them to a target LLM/API endpoint
@@ -21,12 +18,6 @@ This project is being built incrementally as part of an internship program. Belo
   - API keys (custom recognizer — OpenAI, Google, GitHub, AWS key formats + generic secret pattern)
 - ⚠️ **Error Handling** — graceful handling of upstream timeouts and HTTP errors
 
-### 🚧 Roadmap (Week 2 / Mid-Review)
-- 🛡️ Prompt injection & jailbreak detection (ML-based)
-- 🚫 Firewall rules — prompt length limits, unsafe keyword blocking, security policies
-- 📊 Request/response logging
-- ⚡ Latency benchmarking
-- 📈 Automated jailbreak attack testing (target: block ≥95% of known jailbreak attempts)
 
 ## Setup
 
@@ -42,7 +33,7 @@ python -m spacy download en_core_web_lg
 ## Running
 
 ```bash
-uvicorn main:app --reload
+python -m uvicorn main:app --reload
 ```
 
 The proxy will be available at `http://127.0.0.1:8000`.
@@ -51,11 +42,12 @@ The proxy will be available at `http://127.0.0.1:8000`.
 
 Send a POST request to `/chat`:
 
-```bash
-curl -X POST http://127.0.0.1:8000/chat \
-  -H "Content-Type: application/json" \
-  -d '{"message": "My email is john@example.com and my card is 4111-1111-1111-1111"}'
-```
+$body = @{
+>>     message = "My email is john@example.com, card is 4111-1111-1111-1111, and my key is sk-abcdefghijklmnopqrstuvwxyz123456"
+>> } | ConvertTo-Json
+>> 
+>> $response = Invoke-RestMethod -Uri "http://127.0.0.1:8000/chat" -Method Post -Body $body -ContentType "application/json"
+>> $response | ConvertTo-Json -Depth 5
 
 **Response** includes the original message, the masked version actually sent upstream, which entity types were detected, and the upstream response:
 
