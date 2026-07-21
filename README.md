@@ -175,4 +175,40 @@ llm-guard/
 - spaCy — NLP backend for Presidio
 - Python `re` — regex-based firewall rules engine (prompt length, keyword/jailbreak blocking, role-injection protection)
 
+
+
+## Machine Learning Jailbreak Detection
+
+The project now integrates a trained LinearSVC model for detecting jailbreak prompts.
+
+### Files
+- jailbreak_detector.pkl
+- vectorizer.pkl
+- ml_detector.py
+
+### API Response
+
+The `/chat` endpoint now returns:
+
+- ml_prediction
+- risk
+- detected_items
+- safe_message_sent
+
+Example:
+
+{
+  "ml_prediction": "SAFE"
+}
+
+or
+
+{
+  "ml_prediction": "JAILBREAK"
+}
+
+
 ## Contributors
+
+
+

@@ -10,6 +10,7 @@ BLOCKED_PATTERNS = {
         r"forget (everything|what) (you were|i) told",
         r"act as (if you have|though you have) no restrictions",
         r"pretend (you are|to be) (an? )?(unfiltered|uncensored|unrestricted)",
+        r"ignore all restrictions",
     ],
     "persona_jailbreaks": [
         r"\bDAN\b",

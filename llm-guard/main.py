@@ -2,7 +2,12 @@ from fastapi import FastAPI, Request
 import httpx
 from presidio_analyzer import AnalyzerEngine, PatternRecognizer, Pattern
 from presidio_anonymizer import AnonymizerEngine
+<<<<<<< HEAD
 from firewall import apply_firewall
+=======
+from risk_score import calculate_risk
+from ml_detector import detect_jailbreak
+>>>>>>> 623bb8b (Integrated ML jailbreak detection with FastAPI backend)
 
 app = FastAPI()
 TARGET_URL = "https://postman-echo.com/post"
@@ -29,6 +34,7 @@ analyzer.registry.add_recognizer(api_key_recognizer)
 
 
 @app.post("/chat")
+<<<<<<< HEAD
 async def proxy_chat(request: Request):
     body = await request.json()
     user_message = body.get("message", "")
@@ -40,36 +46,63 @@ async def proxy_chat(request: Request):
             "error": "Request blocked by firewall",
             "reason": reason
         }
+=======
+async def proxy_chat(request: ChatRequest):
+    user_message = request.message
+
+    # ML prediction
+    ml_prediction = detect_jailbreak(user_message)
+
+    # Keyword risk score
+    risk = calculate_risk(user_message)
+>>>>>>> 623bb8b (Integrated ML jailbreak detection with FastAPI backend)
 
     # Step 1: Find sensitive info in the message
     results = analyzer.analyze(
         text=user_message,
         language="en",
-        entities=["CREDIT_CARD", "EMAIL_ADDRESS", "PHONE_NUMBER", "US_SSN", "PERSON", "LOCATION", "API_KEY"]
+        entities=[
+            "CREDIT_CARD",
+            "EMAIL_ADDRESS",
+            "PHONE_NUMBER",
+            "US_SSN",
+            "PERSON",
+            "LOCATION",
+            "API_KEY"
+        ]
     )
 
     # Step 2: Redact/hide it
-    anonymized = anonymizer.anonymize(text=user_message, analyzer_results=results)
+    anonymized = anonymizer.anonymize(
+        text=user_message,
+        analyzer_results=results
+    )
     safe_message = anonymized.text
 
     # Step 3: Forward the SAFE version onward
     try:
         async with httpx.AsyncClient(timeout=10.0) as client:
-            response = await client.post(TARGET_URL, json={"message": safe_message})
+            response = await client.post(
+                TARGET_URL,
+                json={"message": safe_message}
+            )
             response.raise_for_status()
             upstream_data = response.json()
+
     except httpx.TimeoutException:
         return {
             "error": "Upstream API timed out",
             "original_message": user_message,
             "safe_message_sent": safe_message
         }
+
     except httpx.HTTPStatusError as e:
         return {
             "error": f"Upstream API returned an error: {e.response.status_code}",
             "original_message": user_message,
             "safe_message_sent": safe_message
         }
+
     except Exception as e:
         return {
             "error": f"Unexpected error: {str(e)}",
@@ -81,5 +114,7 @@ async def proxy_chat(request: Request):
         "original_message": user_message,
         "safe_message_sent": safe_message,
         "detected_items": [r.entity_type for r in results],
+        "ml_prediction": ml_prediction,
+        "risk": risk,
         "upstream_response": upstream_data
     }
