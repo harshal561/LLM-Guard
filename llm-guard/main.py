@@ -1,22 +1,22 @@
-from fastapi import FastAPI, Request
+from fastapi import FastAPI
+from pydantic import BaseModel
 import httpx
 from presidio_analyzer import AnalyzerEngine, PatternRecognizer, Pattern
 from presidio_anonymizer import AnonymizerEngine
-<<<<<<< HEAD
-from firewall import apply_firewall
-=======
-from risk_score import calculate_risk
-from ml_detector import detect_jailbreak
->>>>>>> 623bb8b (Integrated ML jailbreak detection with FastAPI backend)
 
+from firewall import apply_firewall
+from ml_detector import detect_jailbreak
+class ChatRequest(BaseModel):
+    message: str
 app = FastAPI()
+
 TARGET_URL = "https://postman-echo.com/post"
 
-# Initialize Presidio engines
+# Initialize Presidio
 analyzer = AnalyzerEngine()
 anonymizer = AnonymizerEngine()
 
-# Custom recognizer for API keys (OpenAI, Google, GitHub, AWS + generic secrets)
+# Custom recognizer for API Keys
 api_key_patterns = [
     Pattern(name="openai_key", regex=r"sk-[A-Za-z0-9]{20,}", score=0.9),
     Pattern(name="google_key", regex=r"AIza[A-Za-z0-9_\-]{35}", score=0.9),
@@ -27,37 +27,34 @@ api_key_patterns = [
 
 api_key_recognizer = PatternRecognizer(
     supported_entity="API_KEY",
-    patterns=api_key_patterns
+    patterns=api_key_patterns,
 )
 
 analyzer.registry.add_recognizer(api_key_recognizer)
 
 
-@app.post("/chat")
-<<<<<<< HEAD
-async def proxy_chat(request: Request):
-    body = await request.json()
-    user_message = body.get("message", "")
+@app.get("/")
+async def root():
+    return {"message": "LLM Guard API is running"}
 
-    # Firewall check — must run first, before any DLP/forwarding
+
+@app.post("/chat")
+async def proxy_chat(request: ChatRequest):
+    user_message = request.message
+
+    # Firewall Check
     is_safe, reason = apply_firewall(user_message)
+
     if not is_safe:
         return {
             "error": "Request blocked by firewall",
             "reason": reason
         }
-=======
-async def proxy_chat(request: ChatRequest):
-    user_message = request.message
 
-    # ML prediction
+    # ML Jailbreak Detection
     ml_prediction = detect_jailbreak(user_message)
 
-    # Keyword risk score
-    risk = calculate_risk(user_message)
->>>>>>> 623bb8b (Integrated ML jailbreak detection with FastAPI backend)
-
-    # Step 1: Find sensitive info in the message
+    # Detect Sensitive Information
     results = analyzer.analyze(
         text=user_message,
         language="en",
@@ -68,24 +65,26 @@ async def proxy_chat(request: ChatRequest):
             "US_SSN",
             "PERSON",
             "LOCATION",
-            "API_KEY"
-        ]
+            "API_KEY",
+        ],
     )
 
-    # Step 2: Redact/hide it
+    # Mask Sensitive Information
     anonymized = anonymizer.anonymize(
         text=user_message,
-        analyzer_results=results
+        analyzer_results=results,
     )
+
     safe_message = anonymized.text
 
-    # Step 3: Forward the SAFE version onward
+    # Forward Safe Prompt
     try:
         async with httpx.AsyncClient(timeout=10.0) as client:
             response = await client.post(
                 TARGET_URL,
-                json={"message": safe_message}
+                json={"message": safe_message},
             )
+
             response.raise_for_status()
             upstream_data = response.json()
 
@@ -93,21 +92,21 @@ async def proxy_chat(request: ChatRequest):
         return {
             "error": "Upstream API timed out",
             "original_message": user_message,
-            "safe_message_sent": safe_message
+            "safe_message_sent": safe_message,
         }
 
     except httpx.HTTPStatusError as e:
         return {
-            "error": f"Upstream API returned an error: {e.response.status_code}",
+            "error": f"Upstream API returned {e.response.status_code}",
             "original_message": user_message,
-            "safe_message_sent": safe_message
+            "safe_message_sent": safe_message,
         }
 
     except Exception as e:
         return {
-            "error": f"Unexpected error: {str(e)}",
+            "error": str(e),
             "original_message": user_message,
-            "safe_message_sent": safe_message
+            "safe_message_sent": safe_message,
         }
 
     return {
@@ -115,6 +114,5 @@ async def proxy_chat(request: ChatRequest):
         "safe_message_sent": safe_message,
         "detected_items": [r.entity_type for r in results],
         "ml_prediction": ml_prediction,
-        "risk": risk,
-        "upstream_response": upstream_data
+        "upstream_response": upstream_data,
     }
