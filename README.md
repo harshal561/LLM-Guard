@@ -207,7 +207,17 @@ or
   "ml_prediction": "JAILBREAK"
 }
 
+## Enhancements Added
 
+- Request ID generation for each request
+- Timestamp logging
+- Processing time measurement
+- Risk level classification (LOW / MEDIUM / HIGH)
+- Total sensitive items detected
+- Firewall-based prompt injection blocking
+- ML jailbreak detection
+- Email, Phone Number, Credit Card, and API Key masking using Microsoft Presidio
+- Safe forwarding of sanitized prompts
 ## Contributors
 
 
