@@ -1,13 +1,21 @@
 from fastapi import FastAPI
 from pydantic import BaseModel
 import httpx
+import uuid
+import time
+from datetime import datetime
+
 from presidio_analyzer import AnalyzerEngine, PatternRecognizer, Pattern
 from presidio_anonymizer import AnonymizerEngine
 
 from firewall import apply_firewall
 from ml_detector import detect_jailbreak
+
+
 class ChatRequest(BaseModel):
     message: str
+
+
 app = FastAPI()
 
 TARGET_URL = "https://postman-echo.com/post"
@@ -40,6 +48,9 @@ async def root():
 
 @app.post("/chat")
 async def proxy_chat(request: ChatRequest):
+
+    start_time = time.time()
+
     user_message = request.message
 
     # Firewall Check
@@ -47,8 +58,10 @@ async def proxy_chat(request: ChatRequest):
 
     if not is_safe:
         return {
+            "status": "Blocked",
+            "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
             "error": "Request blocked by firewall",
-            "reason": reason
+            "reason": reason,
         }
 
     # ML Jailbreak Detection
@@ -77,6 +90,17 @@ async def proxy_chat(request: ChatRequest):
 
     safe_message = anonymized.text
 
+    # Risk Level
+    risk_level = "LOW"
+
+    if len(results) >= 3:
+        risk_level = "HIGH"
+    elif len(results) >= 1:
+        risk_level = "MEDIUM"
+
+    if ml_prediction == "JAILBREAK":
+        risk_level = "HIGH"
+
     # Forward Safe Prompt
     try:
         async with httpx.AsyncClient(timeout=10.0) as client:
@@ -90,6 +114,8 @@ async def proxy_chat(request: ChatRequest):
 
     except httpx.TimeoutException:
         return {
+            "status": "Failed",
+            "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
             "error": "Upstream API timed out",
             "original_message": user_message,
             "safe_message_sent": safe_message,
@@ -97,6 +123,8 @@ async def proxy_chat(request: ChatRequest):
 
     except httpx.HTTPStatusError as e:
         return {
+            "status": "Failed",
+            "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
             "error": f"Upstream API returned {e.response.status_code}",
             "original_message": user_message,
             "safe_message_sent": safe_message,
@@ -104,12 +132,22 @@ async def proxy_chat(request: ChatRequest):
 
     except Exception as e:
         return {
+            "status": "Failed",
+            "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
             "error": str(e),
             "original_message": user_message,
             "safe_message_sent": safe_message,
         }
 
+    processing_time = round(time.time() - start_time, 4)
+
     return {
+        "request_id": str(uuid.uuid4()),
+        "status": "Processed Successfully",
+        "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        "processing_time_seconds": processing_time,
+        "risk_level": risk_level,
+        "total_sensitive_items": len(results),
         "original_message": user_message,
         "safe_message_sent": safe_message,
         "detected_items": [r.entity_type for r in results],
