@@ -1,6 +1,10 @@
 from fastapi import FastAPI
 from pydantic import BaseModel
 import httpx
+import uuid
+import time
+from datetime import datetime
+
 from presidio_analyzer import AnalyzerEngine, PatternRecognizer, Pattern
 from presidio_anonymizer import AnonymizerEngine
 
@@ -43,6 +47,9 @@ async def root():
 
 @app.post("/chat")
 async def proxy_chat(request: ChatRequest):
+
+    start_time = time.time()
+
     user_message = request.message
 
     # Firewall Check
@@ -51,6 +58,10 @@ async def proxy_chat(request: ChatRequest):
     if not is_safe:
         return {
             "status": "Blocked",
+<<<<<<< HEAD
+=======
+            "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+>>>>>>> 0c5d9cc28be49b5a3204758c6f29fdcffde404bf
             "error": "Request blocked by firewall",
             "reason": reason,
         }
@@ -106,6 +117,10 @@ async def proxy_chat(request: ChatRequest):
     except httpx.TimeoutException:
         return {
             "status": "Failed",
+<<<<<<< HEAD
+=======
+            "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+>>>>>>> 0c5d9cc28be49b5a3204758c6f29fdcffde404bf
             "error": "Upstream API timed out",
             "original_message": user_message,
             "safe_message_sent": safe_message,
@@ -114,6 +129,10 @@ async def proxy_chat(request: ChatRequest):
     except httpx.HTTPStatusError as e:
         return {
             "status": "Failed",
+<<<<<<< HEAD
+=======
+            "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+>>>>>>> 0c5d9cc28be49b5a3204758c6f29fdcffde404bf
             "error": f"Upstream API returned {e.response.status_code}",
             "original_message": user_message,
             "safe_message_sent": safe_message,
@@ -122,13 +141,26 @@ async def proxy_chat(request: ChatRequest):
     except Exception as e:
         return {
             "status": "Failed",
+<<<<<<< HEAD
+=======
+            "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+>>>>>>> 0c5d9cc28be49b5a3204758c6f29fdcffde404bf
             "error": str(e),
             "original_message": user_message,
             "safe_message_sent": safe_message,
         }
 
+    processing_time = round(time.time() - start_time, 4)
+
     return {
+<<<<<<< HEAD
         "status": "Processed Successfully",
+=======
+        "request_id": str(uuid.uuid4()),
+        "status": "Processed Successfully",
+        "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        "processing_time_seconds": processing_time,
+>>>>>>> 0c5d9cc28be49b5a3204758c6f29fdcffde404bf
         "risk_level": risk_level,
         "total_sensitive_items": len(results),
         "original_message": user_message,
